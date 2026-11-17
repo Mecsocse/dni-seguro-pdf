@@ -54,8 +54,12 @@
           <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.9rem; cursor:pointer;">
             <input type="checkbox" id="bw-toggle" checked onchange="renderSheet()"> Blanco y Negro
           </label>
-          <div style="display:flex; gap:8px;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.9rem; cursor:pointer;">
+            <input type="checkbox" id="wm-card-only" checked onchange="renderSheet()"> Texto solo sobre el DNI
+          </label>
+          <div style="grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px;">
             <button type="button" class="btn btn-primary" onclick="downloadPNG()">💾 Descargar PNG</button>
+            <button type="button" class="btn btn-primary" onclick="downloadCroppedPNG()">✂️ PNG recortado</button>
             <button type="button" class="btn btn-sec" onclick="window.print()">🖨️ Guardar PDF (A4)</button>
           </div>
         </div>
@@ -102,19 +106,88 @@
       return c;
     }
 
-    function drawCard(ctx, img, yTop, bw) {
+    const CARD_W = 506; // 85.6mm @ ~150dpi on A4 (1240x1754)
+    const CARD_H = Math.round(CARD_W * (54 / 85.6));
+    const CARD_Y = { front: 340, back: 840 };
+
+    function drawCard(ctx, img, yTop, bw, text) {
       if (!img) return;
-      const cardW = 506; // 85.6mm @ ~150dpi on A4 (1240x1754)
-      const cardH = Math.round(cardW * (54 / 85.6));
+      const cardW = CARD_W;
+      const cardH = CARD_H;
       const x = Math.round((ctx.canvas.width - cardW) / 2);
       const src = bw ? toGrayscaleCanvas(img) : img;
       ctx.drawImage(src, x, yTop, cardW, cardH);
+      if (text !== null) drawWatermark(ctx, text, x, yTop, cardW, cardH);
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 2;
       ctx.strokeRect(x, yTop, cardW, cardH);
     }
 
-    function drawWatermark(ctx, text) {
+    // Dibuja la marca de agua diagonal sobre la tarjeta, ajustando el tamaño de
+    // letra para que cada línea de texto quede entera dentro de la imagen del DNI.
+    function drawWatermark(ctx, text, cx, cy, cw, ch) {
+      if (!text.trim()) return;
+      const angle = -Math.PI / 6;
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const margin = 10;
+      const rows = [-1, 0, 1];
+      const lineGap = 2.4; // separación entre líneas (en múltiplos del tamaño de letra)
+
+      // Comprueba si todas las líneas caben dentro de la tarjeta con un tamaño dado
+      const fits = size => {
+        ctx.font = `bold ${size}px system-ui, sans-serif`;
+        const hw = ctx.measureText(text).width / 2;
+        const hh = size * 0.6;
+        return rows.every(r => {
+          const oy = r * size * lineGap;
+          return [[-hw, oy - hh], [hw, oy - hh], [-hw, oy + hh], [hw, oy + hh]].every(([px, py]) => {
+            const X = px * cos - py * sin;
+            const Y = px * sin + py * cos;
+            return Math.abs(X) <= cw / 2 - margin && Math.abs(Y) <= ch / 2 - margin;
+          });
+        });
+      };
+
+      let size = 28;
+      while (size > 8 && !fits(size)) size--;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cx, cy, cw, ch);
+      ctx.clip();
+      ctx.font = `bold ${size}px system-ui, sans-serif`;
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.30)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.translate(cx + cw / 2, cy + ch / 2);
+      ctx.rotate(angle);
+      rows.forEach(r => ctx.fillText(text, 0, r * size * lineGap));
+      ctx.restore();
+    }
+
+    function renderSheet() {
+      const c = document.getElementById('sheet');
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      const bw = document.getElementById('bw-toggle').checked;
+      const text = document.getElementById('wm-text').value;
+      const cardOnly = document.getElementById('wm-card-only').checked;
+      drawCard(ctx, imgs.front, CARD_Y.front, bw, cardOnly ? text : null);
+      drawCard(ctx, imgs.back, CARD_Y.back, bw, cardOnly ? text : null);
+
+      if (!imgs.front && !imgs.back) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '24px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Sube ambas caras del DNI para generar la copia A4 segura', c.width / 2, c.height / 2 - 40);
+      }
+      if (!cardOnly) drawPageWatermark(ctx, text);
+    }
+
+    // Marca de agua original: texto en mosaico diagonal por toda la hoja A4
+    function drawPageWatermark(ctx, text) {
       if (!text.trim()) return;
       ctx.save();
       ctx.font = 'bold 28px system-ui, sans-serif';
@@ -130,29 +203,29 @@
       ctx.restore();
     }
 
-    function renderSheet() {
-      const c = document.getElementById('sheet');
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, c.width, c.height);
-
-      const bw = document.getElementById('bw-toggle').checked;
-      drawCard(ctx, imgs.front, 340, bw);
-      drawCard(ctx, imgs.back, 840, bw);
-
-      if (!imgs.front && !imgs.back) {
-        ctx.fillStyle = '#64748b';
-        ctx.font = '24px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Sube ambas caras del DNI para generar la copia A4 segura', c.width / 2, c.height / 2 - 40);
-      }
-      drawWatermark(ctx, document.getElementById('wm-text').value);
-    }
-
     function downloadPNG() {
       const a = document.createElement('a');
       a.download = 'copia-dni-segura.png';
       a.href = document.getElementById('sheet').toDataURL('image/png');
+      a.click();
+    }
+
+    // Descarga solo la zona de las tarjetas (con un pequeño margen), sin el A4 completo
+    function downloadCroppedPNG() {
+      const sides = ['front', 'back'].filter(k => imgs[k]);
+      if (!sides.length) return;
+      const sheet = document.getElementById('sheet');
+      const pad = 30;
+      const x = Math.round((sheet.width - CARD_W) / 2) - pad;
+      const y = Math.min(...sides.map(k => CARD_Y[k])) - pad;
+      const yEnd = Math.max(...sides.map(k => CARD_Y[k])) + CARD_H + pad;
+      const out = document.createElement('canvas');
+      out.width = CARD_W + pad * 2;
+      out.height = yEnd - y;
+      out.getContext('2d').drawImage(sheet, x, y, out.width, out.height, 0, 0, out.width, out.height);
+      const a = document.createElement('a');
+      a.download = 'copia-dni-segura-recortada.png';
+      a.href = out.toDataURL('image/png');
       a.click();
     }
 
