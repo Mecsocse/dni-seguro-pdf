@@ -1,31 +1,41 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DNI Seguro Offline — Blanco y Negro + Marca de Agua (Open Source)</title>
+  <title>Offline ID Card Watermark &amp; Redact — Single HTML File (MIT)</title>
   <style>
-    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #475569; --border: #cbd5e1; --accent: #2563eb; }
+    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #475569; --border: #cbd5e1; --accent: #2563eb; --dark: #09090b; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text); }
-    .wrap { max-width: 820px; margin: 0 auto; }
+    body { margin: 0; padding: 20px 14px; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 860px; margin: 0 auto; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); }
-    h1 { margin: 0 0 8px; font-size: 1.5rem; }
-    p.sub { margin: 0 0 18px; color: var(--muted); font-size: 0.95rem; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+    h1 { margin: 0; font-size: 1.45rem; }
+    .lang-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .lang-btn { border: none; background: #fff; color: var(--muted); padding: 6px 10px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+    .lang-btn.active { background: var(--accent); color: #fff; }
+    p.sub { margin: 0 0 16px; color: var(--muted); font-size: 0.94rem; line-height: 1.5; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px; }
     .slot { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; background: #f1f5f9; }
     .slot label { display: block; font-weight: 700; margin-bottom: 8px; font-size: 0.9rem; }
-    .ctrl { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; margin-bottom: 16px; }
-    @media (max-width: 640px) { .ctrl { grid-template-columns: 1fr; } }
-    input[type="text"] { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; width: 100%; }
-    .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.92rem; }
+    .ctrl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
+    input[type="text"] { flex: 1 1 260px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.94rem; }
+    .chk-opt { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.88rem; cursor: pointer; }
+    .actions-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .redact-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; background: #f1f5f9; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; font-size: 0.86rem; }
+    .btn { padding: 9px 14px; border: 1px solid transparent; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.88rem; }
     .btn-primary { background: var(--accent); color: #fff; }
     .btn-sec { background: #e2e8f0; color: var(--text); }
-    .preview-box { margin-top: 16px; text-align: center; background: #e2e8f0; padding: 14px; border-radius: 10px; }
-    canvas { max-width: 100%; height: auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .btn-tool { background: #fff; border-color: var(--border); color: var(--text); }
+    .btn-tool.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+    .preview-box { margin-top: 10px; text-align: center; background: #e2e8f0; padding: 14px; border-radius: 10px; }
+    canvas { max-width: 100%; height: auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: block; margin: 0 auto; }
+    canvas.draw-mode { cursor: crosshair; touch-action: none; }
     @media print {
       body { padding: 0; background: #fff; }
       .no-print { display: none !important; }
+      .card { border: none; box-shadow: none; padding: 0; }
       .preview-box { background: transparent; padding: 0; margin: 0; }
       canvas { box-shadow: none; width: 100%; }
     }
@@ -35,33 +45,49 @@
   <div class="wrap">
     <div class="card">
       <div class="no-print">
-        <h1>🪪 DNI Seguro Offline (Zero-Server / Open Source)</h1>
-        <p class="sub">Une las dos caras de tu DNI/NIE en blanco y negro con marca de agua diagonal 100% en la memoria del navegador. Ningún archivo sale de tu dispositivo.</p>
+        <div class="topbar">
+          <h1 id="t-title">🪪 Offline ID Watermark &amp; Redact (Single HTML · MIT)</h1>
+          <div class="lang-switch" role="group" aria-label="Language switch">
+            <button type="button" class="lang-btn" id="btn-lang-en" onclick="setLang('en')">EN</button>
+            <button type="button" class="lang-btn" id="btn-lang-es" onclick="setLang('es')">ES</button>
+          </div>
+        </div>
+        <p class="sub" id="t-sub">Combine both sides of an ID/license on A4 in grayscale with diagonal watermark and pixel/blackout redaction — 100% locally in Canvas memory with zero network requests.</p>
 
         <div class="grid">
           <div class="slot">
-            <label for="f-front">1. Cara Frontal (Anverso)</label>
+            <label for="f-front" id="t-front">1. Front Side</label>
             <input type="file" id="f-front" accept="image/*" onchange="loadSide('front', this.files[0])">
           </div>
           <div class="slot">
-            <label for="f-back">2. Cara Trasera (Reverso)</label>
+            <label for="f-back" id="t-back">2. Back Side</label>
             <input type="file" id="f-back" accept="image/*" onchange="loadSide('back', this.files[0])">
           </div>
         </div>
 
         <div class="ctrl">
-          <input type="text" id="wm-text" value="COPIA DNI - SOLO PARA ESTE TRÁMITE" oninput="renderSheet()" aria-label="Texto de marca de agua">
-          <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.9rem; cursor:pointer;">
-            <input type="checkbox" id="bw-toggle" checked onchange="renderSheet()"> Blanco y Negro
+          <input type="text" id="wm-text" value="ID COPY - FOR VERIFICATION ONLY" maxlength="90" oninput="renderSheet()" aria-label="Watermark text">
+          <label class="chk-opt">
+            <input type="checkbox" id="bw-toggle" checked onchange="renderSheet()"> <span id="t-bw">Grayscale (B&amp;W)</span>
           </label>
-          <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.9rem; cursor:pointer;">
-            <input type="checkbox" id="wm-card-only" checked onchange="renderSheet()"> Texto solo sobre el DNI
+          <label class="chk-opt">
+            <input type="checkbox" id="wm-card-only" checked onchange="renderSheet()"> <span id="t-cardonly">Fit text inside each card</span>
           </label>
-          <div style="grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px;">
-            <button type="button" class="btn btn-primary" onclick="downloadPNG()">💾 Descargar PNG</button>
-            <button type="button" class="btn btn-primary" onclick="downloadCroppedPNG()">✂️ PNG recortado</button>
-            <button type="button" class="btn btn-sec" onclick="window.print()">🖨️ Guardar PDF (A4)</button>
-          </div>
+        </div>
+
+        <div class="actions-row">
+          <button type="button" class="btn btn-primary" onclick="downloadPNG()" id="t-dl">💾 Download A4 PNG</button>
+          <button type="button" class="btn btn-primary" onclick="downloadCroppedPNG()" id="t-dlcrop">✂️ Download Cropped PNG</button>
+          <button type="button" class="btn btn-sec" onclick="window.print()" id="t-print">🖨️ Save PDF (A4)</button>
+        </div>
+
+        <div class="redact-bar">
+          <strong id="t-redact-lbl">⬛ Redact sensitive info (drag on sheet):</strong>
+          <button type="button" class="btn btn-tool active" id="mode-view" onclick="setDrawMode(null)">🖱️ Scroll / View</button>
+          <button type="button" class="btn btn-tool" id="mode-black" onclick="setDrawMode('black')">⬛ Blackout Box</button>
+          <button type="button" class="btn btn-tool" id="mode-pixel" onclick="setDrawMode('pixel')">▦ Pixelate Zone</button>
+          <button type="button" class="btn btn-tool" onclick="undoRedact()" id="t-undo">↩️ Undo</button>
+          <button type="button" class="btn btn-tool" onclick="clearRedacts()" id="t-clear">🗑️ Clear</button>
         </div>
       </div>
 
@@ -69,15 +95,114 @@
         <canvas id="sheet" width="1240" height="1754"></canvas>
       </div>
 
-      <p class="no-print" style="margin-top:14px; font-size:0.85rem; color:var(--muted); text-align:center;">
-        ¿Prefieres descarga directa en archivo <code>.pdf</code> desde el móvil? Prueba la versión web completa en
-        <a href="https://getminitools.com/es/dni-dos-caras-en-pdf/" target="_blank" rel="noopener">MiniTools DNI en PDF</a>.
+      <p class="no-print" id="t-footer" style="margin-top:14px; font-size:0.85rem; color:var(--muted); text-align:center;">
+        Prefer direct binary <code>.pdf</code> download on mobile? Try <a href="https://getminitools.com/id-card-watermark-pdf/" target="_blank" rel="noopener">MiniTools ID Watermark PDF</a>.
       </p>
     </div>
   </div>
 
   <script>
+    const COPY = {
+      en: {
+        title: '🪪 Offline ID Watermark & Redact (Single HTML · MIT)',
+        sub: 'Combine both sides of an ID, driver\'s license, or passport on A4 in grayscale with card-fitted diagonal watermark and irreversible pixel/blackout redaction — 100% offline in Canvas memory.',
+        front: '1. Front Side',
+        back: '2. Back Side',
+        wmDefault: 'ID COPY - FOR VERIFICATION ONLY',
+        bw: 'Grayscale (B&W)',
+        cardOnly: 'Fit text inside card',
+        dl: '💾 Download A4 PNG',
+        dlCrop: '✂️ Cropped PNG',
+        print: '🖨️ Save PDF (A4)',
+        redactLbl: '⬛ Redact sensitive info (drag on sheet):',
+        view: '🖱️ Scroll / View',
+        black: '⬛ Blackout Box',
+        pixel: '▦ Pixelate Zone',
+        undo: '↩️ Undo',
+        clear: '🗑️ Clear',
+        placeholder: 'Select Front & Back photos above to generate a protected A4 copy',
+        outName: 'protected-id-copy.png',
+        outCropName: 'protected-id-cropped.png',
+        footer: 'Prefer direct binary <code>.pdf</code> download on mobile? Try <a href="https://getminitools.com/id-card-watermark-pdf/" target="_blank" rel="noopener">MiniTools ID Watermark PDF</a>.'
+      },
+      es: {
+        title: '🪪 DNI Seguro Offline — Blanco y Negro, Censura y Marca de Agua (MIT)',
+        sub: 'Une anverso y reverso del DNI en blanco y negro con marca de agua diagonal ajustada a cada tarjeta y zonas tapadas/pixeladas de forma irreversible 100% en local. Cero peticiones de red.',
+        front: '1. Cara Frontal (Anverso)',
+        back: '2. Cara Trasera (Reverso)',
+        wmDefault: 'COPIA DNI - SOLO PARA ESTE TRÁMITE',
+        bw: 'Blanco y Negro',
+        cardOnly: 'Texto solo sobre el DNI',
+        dl: '💾 Descargar PNG (A4)',
+        dlCrop: '✂️ PNG recortado',
+        print: '🖨️ Guardar PDF (A4)',
+        redactLbl: '⬛ Tapar CAN / firma / nº soporte (arrastra sobre el folio):',
+        view: '🖱️ Ver / Desplazar',
+        black: '⬛ Rectángulo Negro',
+        pixel: '▦ Pixelar Zona',
+        undo: '↩️ Deshacer',
+        clear: '🗑️ Limpiar',
+        placeholder: 'Sube anverso y reverso para generar la copia A4 segura',
+        outName: 'copia-dni-segura.png',
+        outCropName: 'copia-dni-recortada.png',
+        footer: '¿Prefieres descarga directa en archivo <code>.pdf</code> desde el móvil? Prueba <a href="https://getminitools.com/es/dni-dos-caras-en-pdf/" target="_blank" rel="noopener">MiniTools DNI Dos Caras en PDF</a>.'
+      }
+    };
+
+    const CARD_W = 506; // 85.6 mm @ ~150 dpi on A4 (1240x1754)
+    const CARD_H = Math.round(CARD_W * (54 / 85.6));
+    const CARD_Y = { front: 340, back: 840 };
+
+    let currentLang = /^es\b/i.test(navigator.language || '') ? 'es' : 'en';
     const imgs = { front: null, back: null };
+    const redacts = []; // { x, y, w, h, mode: 'black'|'pixel' }
+    let drawnRects = [];
+    let drawMode = null;
+    let dragDraft = null;
+
+    function setLang(lang) {
+      const prevDef = COPY[currentLang].wmDefault;
+      currentLang = lang === 'es' ? 'es' : 'en';
+      const c = COPY[currentLang];
+      document.documentElement.lang = currentLang;
+      document.getElementById('btn-lang-en').classList.toggle('active', currentLang === 'en');
+      document.getElementById('btn-lang-es').classList.toggle('active', currentLang === 'es');
+      document.getElementById('t-title').textContent = c.title;
+      document.getElementById('t-sub').textContent = c.sub;
+      document.getElementById('t-front').textContent = c.front;
+      document.getElementById('t-back').textContent = c.back;
+      document.getElementById('t-bw').textContent = c.bw;
+      document.getElementById('t-cardonly').textContent = c.cardOnly;
+      document.getElementById('t-dl').textContent = c.dl;
+      document.getElementById('t-dlcrop').textContent = c.dlCrop;
+      document.getElementById('t-print').textContent = c.print;
+      document.getElementById('t-redact-lbl').textContent = c.redactLbl;
+      document.getElementById('mode-view').textContent = c.view;
+      document.getElementById('mode-black').textContent = c.black;
+      document.getElementById('mode-pixel').textContent = c.pixel;
+      document.getElementById('t-undo').textContent = c.undo;
+      document.getElementById('t-clear').textContent = c.clear;
+      document.getElementById('t-footer').innerHTML = c.footer;
+      const wmInput = document.getElementById('wm-text');
+      if (!wmInput.value.trim() || wmInput.value === prevDef) wmInput.value = c.wmDefault;
+      renderSheet();
+    }
+
+    function setDrawMode(mode) {
+      drawMode = mode;
+      document.getElementById('mode-view').classList.toggle('active', mode === null);
+      document.getElementById('mode-black').classList.toggle('active', mode === 'black');
+      document.getElementById('mode-pixel').classList.toggle('active', mode === 'pixel');
+      document.getElementById('sheet').classList.toggle('draw-mode', mode !== null);
+    }
+
+    function undoRedact() {
+      if (redacts.length) { redacts.pop(); renderSheet(); }
+    }
+
+    function clearRedacts() {
+      if (redacts.length) { redacts.length = 0; renderSheet(); }
+    }
 
     function loadSide(key, file) {
       if (!file) return;
@@ -106,44 +231,74 @@
       return c;
     }
 
-    const CARD_W = 506; // 85.6mm @ ~150dpi on A4 (1240x1754)
-    const CARD_H = Math.round(CARD_W * (54 / 85.6));
-    const CARD_Y = { front: 340, back: 840 };
-
-    function drawCard(ctx, img, yTop, bw, text) {
-      if (!img) return;
-      const cardW = CARD_W;
-      const cardH = CARD_H;
-      const x = Math.round((ctx.canvas.width - cardW) / 2);
+    function drawCard(ctx, img, yTop, bw) {
+      if (!img) return null;
+      const natW = img.naturalWidth || img.width || CARD_W;
+      const natH = img.naturalHeight || img.height || CARD_H;
+      const scale = Math.min(CARD_W / natW, CARD_H / natH);
+      const dw = Math.round(natW * scale);
+      const dh = Math.round(natH * scale);
+      const x = Math.round((ctx.canvas.width - dw) / 2);
+      const y = Math.round(yTop + (CARD_H - dh) / 2);
       const src = bw ? toGrayscaleCanvas(img) : img;
-      ctx.drawImage(src, x, yTop, cardW, cardH);
-      if (text !== null) drawWatermark(ctx, text, x, yTop, cardW, cardH);
+      ctx.drawImage(src, x, y, dw, dh);
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 2;
-      ctx.strokeRect(x, yTop, cardW, cardH);
+      ctx.strokeRect(x, y, dw, dh);
+      return { x, y, w: dw, h: dh };
     }
 
-    // Dibuja la marca de agua diagonal sobre la tarjeta, ajustando el tamaño de
-    // letra para que cada línea de texto quede entera dentro de la imagen del DNI.
-    function drawWatermark(ctx, text, cx, cy, cw, ch) {
-      if (!text.trim()) return;
+    function applyRedactBox(ctx, r, isDraft) {
+      const rx = Math.max(0, Math.round(Math.min(r.x, r.x + r.w)));
+      const ry = Math.max(0, Math.round(Math.min(r.y, r.y + r.h)));
+      const rw = Math.min(ctx.canvas.width - rx, Math.round(Math.abs(r.w)));
+      const rh = Math.min(ctx.canvas.height - ry, Math.round(Math.abs(r.h)));
+      if (rw < 4 || rh < 4) return;
+      if (r.mode === 'pixel') {
+        const block = Math.max(12, Math.round(Math.min(rw, rh) / 3.2));
+        const tw = Math.max(2, Math.floor(rw / block));
+        const th = Math.max(2, Math.floor(rh / block));
+        const tmp = document.createElement('canvas');
+        tmp.width = tw; tmp.height = th;
+        tmp.getContext('2d').drawImage(ctx.canvas, rx, ry, rw, rh, 0, 0, tw, th);
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, 0, 0, tw, th, rx, ry, rw, rh);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(rx, ry, rw, rh);
+      }
+      if (isDraft) {
+        ctx.save();
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.restore();
+      }
+    }
+
+    // Draws 3 diagonal lines clipped & auto-sized strictly inside each card rect (contributed by @otger)
+    function drawCardWatermark(ctx, text, r) {
+      const clean = text.trim();
+      if (!clean || !r) return;
       const angle = -Math.PI / 6;
       const cos = Math.cos(angle), sin = Math.sin(angle);
       const margin = 10;
       const rows = [-1, 0, 1];
-      const lineGap = 2.4; // separación entre líneas (en múltiplos del tamaño de letra)
+      const lineGap = 2.4;
 
-      // Comprueba si todas las líneas caben dentro de la tarjeta con un tamaño dado
       const fits = size => {
         ctx.font = `bold ${size}px system-ui, sans-serif`;
-        const hw = ctx.measureText(text).width / 2;
+        const hw = ctx.measureText(clean).width / 2;
         const hh = size * 0.6;
-        return rows.every(r => {
-          const oy = r * size * lineGap;
+        return rows.every(row => {
+          const oy = row * size * lineGap;
           return [[-hw, oy - hh], [hw, oy - hh], [-hw, oy + hh], [hw, oy + hh]].every(([px, py]) => {
             const X = px * cos - py * sin;
             const Y = px * sin + py * cos;
-            return Math.abs(X) <= cw / 2 - margin && Math.abs(Y) <= ch / 2 - margin;
+            return Math.abs(X) <= r.w / 2 - margin && Math.abs(Y) <= r.h / 2 - margin;
           });
         });
       };
@@ -153,15 +308,40 @@
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(cx, cy, cw, ch);
+      ctx.rect(r.x, r.y, r.w, r.h);
       ctx.clip();
       ctx.font = `bold ${size}px system-ui, sans-serif`;
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.34)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.rotate(angle);
+      rows.forEach(row => ctx.fillText(clean, 0, row * size * lineGap));
+      ctx.restore();
+    }
+
+    function drawPageWatermark(ctx, text) {
+      const clean = text.trim();
+      if (!clean) return;
+      ctx.save();
+      let fontSize = 28;
+      ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+      const mw = ctx.measureText(clean).width;
+      if (mw > 900) {
+        fontSize = Math.max(15, Math.floor(fontSize * (900 / mw)));
+        ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+      }
+      const stepX = Math.max(540, ctx.measureText(clean).width + 90);
       ctx.fillStyle = 'rgba(220, 38, 38, 0.30)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.translate(cx + cw / 2, cy + ch / 2);
-      ctx.rotate(angle);
-      rows.forEach(r => ctx.fillText(text, 0, r * size * lineGap));
+      ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
+      ctx.rotate(-Math.PI / 6);
+      for (let y = -1100; y <= 1100; y += 170) {
+        for (let x = -1100; x <= 1100; x += stepX) {
+          ctx.fillText(clean, x, y);
+        }
+      }
       ctx.restore();
     }
 
@@ -174,62 +354,91 @@
       const bw = document.getElementById('bw-toggle').checked;
       const text = document.getElementById('wm-text').value;
       const cardOnly = document.getElementById('wm-card-only').checked;
-      drawCard(ctx, imgs.front, CARD_Y.front, bw, cardOnly ? text : null);
-      drawCard(ctx, imgs.back, CARD_Y.back, bw, cardOnly ? text : null);
 
-      if (!imgs.front && !imgs.back) {
+      drawnRects = [];
+      const rFront = drawCard(ctx, imgs.front, CARD_Y.front, bw);
+      const rBack = drawCard(ctx, imgs.back, CARD_Y.back, bw);
+      if (rFront) drawnRects.push(rFront);
+      if (rBack) drawnRects.push(rBack);
+
+      if (!rFront && !rBack) {
         ctx.fillStyle = '#64748b';
         ctx.font = '24px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Sube ambas caras del DNI para generar la copia A4 segura', c.width / 2, c.height / 2 - 40);
+        ctx.fillText(COPY[currentLang].placeholder, c.width / 2, c.height / 2 - 40);
       }
-      if (!cardOnly) drawPageWatermark(ctx, text);
+
+      // Redactions overwrite underlying pixels before watermarks are stamped on top
+      redacts.forEach(r => applyRedactBox(ctx, r, false));
+      if (dragDraft) applyRedactBox(ctx, dragDraft, true);
+
+      if (cardOnly && drawnRects.length) {
+        drawnRects.forEach(r => drawCardWatermark(ctx, text, r));
+      } else {
+        drawPageWatermark(ctx, text);
+      }
     }
 
-    // Marca de agua original: texto en mosaico diagonal por toda la hoja A4
-    function drawPageWatermark(ctx, text) {
-      if (!text.trim()) return;
-      ctx.save();
-      ctx.font = 'bold 28px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(220, 38, 38, 0.30)';
-      ctx.textAlign = 'center';
-      ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
-      ctx.rotate(-Math.PI / 6);
-      for (let y = -900; y <= 900; y += 170) {
-        for (let x = -750; x <= 750; x += 560) {
-          ctx.fillText(text, x, y);
-        }
+    (function initCanvasRedaction() {
+      const c = document.getElementById('sheet');
+      function toCanvasPt(ev) {
+        const rect = c.getBoundingClientRect();
+        return {
+          x: (ev.clientX - rect.left) * (c.width / rect.width),
+          y: (ev.clientY - rect.top) * (c.height / rect.height)
+        };
       }
-      ctx.restore();
-    }
+      c.addEventListener('pointerdown', ev => {
+        if (!drawMode) return;
+        ev.preventDefault();
+        c.setPointerCapture(ev.pointerId);
+        const pt = toCanvasPt(ev);
+        dragDraft = { x: pt.x, y: pt.y, w: 0, h: 0, mode: drawMode };
+      });
+      c.addEventListener('pointermove', ev => {
+        if (!dragDraft) return;
+        const pt = toCanvasPt(ev);
+        dragDraft.w = pt.x - dragDraft.x;
+        dragDraft.h = pt.y - dragDraft.y;
+        renderSheet();
+      });
+      c.addEventListener('pointerup', () => {
+        if (!dragDraft) return;
+        if (Math.abs(dragDraft.w) >= 8 && Math.abs(dragDraft.h) >= 8) {
+          redacts.push(dragDraft);
+        }
+        dragDraft = null;
+        renderSheet();
+      });
+    })();
 
     function downloadPNG() {
       const a = document.createElement('a');
-      a.download = 'copia-dni-segura.png';
+      a.download = COPY[currentLang].outName;
       a.href = document.getElementById('sheet').toDataURL('image/png');
       a.click();
     }
 
-    // Descarga solo la zona de las tarjetas (con un pequeño margen), sin el A4 completo
+    // Export cropped PNG tightly around uploaded card(s) with 30px padding (contributed by @otger)
     function downloadCroppedPNG() {
-      const sides = ['front', 'back'].filter(k => imgs[k]);
-      if (!sides.length) return;
+      if (!drawnRects.length) return;
       const sheet = document.getElementById('sheet');
       const pad = 30;
-      const x = Math.round((sheet.width - CARD_W) / 2) - pad;
-      const y = Math.min(...sides.map(k => CARD_Y[k])) - pad;
-      const yEnd = Math.max(...sides.map(k => CARD_Y[k])) + CARD_H + pad;
+      const minX = Math.max(0, Math.min(...drawnRects.map(r => r.x)) - pad);
+      const minY = Math.max(0, Math.min(...drawnRects.map(r => r.y)) - pad);
+      const maxX = Math.min(sheet.width, Math.max(...drawnRects.map(r => r.x + r.w)) + pad);
+      const maxY = Math.min(sheet.height, Math.max(...drawnRects.map(r => r.y + r.h)) + pad);
       const out = document.createElement('canvas');
-      out.width = CARD_W + pad * 2;
-      out.height = yEnd - y;
-      out.getContext('2d').drawImage(sheet, x, y, out.width, out.height, 0, 0, out.width, out.height);
+      out.width = maxX - minX;
+      out.height = maxY - minY;
+      out.getContext('2d').drawImage(sheet, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
       const a = document.createElement('a');
-      a.download = 'copia-dni-segura-recortada.png';
+      a.download = COPY[currentLang].outCropName;
       a.href = out.toDataURL('image/png');
       a.click();
     }
 
-    renderSheet();
+    setLang(currentLang);
   </script>
 </body>
 </html>
